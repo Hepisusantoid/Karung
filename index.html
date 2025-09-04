@@ -92,6 +92,319 @@
             border-radius: 8px;
             margin-bottom: 10px;
             border-left: 5px solid #007bff;
+            line-height: 1.2;
+        }
+        .lunas {
+            border-color: #28a745;
+            background-color: #eafff0;
+        }
+        .belum-lunas {
+            border-color: #dc3545;
+            background-color: #fff0f0;
+        }
+        .uang {
+            font-weight: bold;
+            color: #007bff;
+        }
+        .edit-fields {
+            display: none;
+        }
+        .laporan-keuangan {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #e6e6fa;
+            border-radius: 10px;
+            border: 2px solid #8a2be2;
+        }
+        .data-item p {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Pelacakan Penjualan Karung</h1>
+    <div class="form-row">
+        <div class="input-group">
+            <label for="nama_pelanggan">Nama:</label>
+            <input type="text" id="nama_pelanggan" placeholder="cth: Medik">
+        </div>
+        <div class="input-group">
+            <label for="kodi_terjual">Kodi:</label>
+            <input type="number" id="kodi_terjual" value="0">
+        </div>
+        <div class="input-group">
+            <label for="sudah_bayar">Bayar:</label>
+            <input type="number" id="sudah_bayar" value="0">
+        </div>
+        <div class="input-group">
+            <label for="harga_modal">Modal:</label>
+            <input type="number" id="harga_modal" value="0">
+        </div>
+    </div>
+    <button onclick="tambahData()">Tambah</button>
+    <button onclick="tampilkanLaporan()">Hitung Laporan</button>
+
+    <div id="hasil-penjualan">
+        <h2>Laporan Penjualan</h2>
+        <div id="daftar_penjualan">
+            </div>
+    </div>
+
+    <div id="laporan-keuangan-container" style="display:none;">
+        <div class="laporan-keuangan">
+            <h2>Laporan Keuangan</h2>
+            <p><strong>Omzet:</strong> <span id="omzet">Rp 0</span></p>
+            <p><strong>Total Modal:</strong> <span id="total_modal">Rp 0</span></p>
+            <p><strong>Laba Kotor (Gross Profit):</strong> <span id="laba_kotor">Rp 0</span></p>
+            <p><strong>Laba Bersih (Net Income):</strong> <span id="laba_bersih">Rp 0</span></p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const hargaPerKodi = 45000;
+    let dataPelanggan = {};
+
+    // Ganti dengan API Key dan Bin ID Anda
+    const API_KEY = "$2a$10$i2DZWNMVKQF6aE6ywePaVukOPhSZ38yYdGCSBwNB.MlpyDyHx7vf6";
+    const BIN_ID = "68b93dd043b1c97be9364293";
+    const URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
+
+    async function muatData() {
+        try {
+            const response = await fetch(URL, {
+                method: "GET",
+                headers: {
+                    "X-Master-Key": API_KEY,
+                    "X-Bin-Meta": false
+                }
+            });
+            const data = await response.json();
+            dataPelanggan = data || {};
+            tampilkanLaporan();
+        } catch (error) {
+            console.error("Gagal memuat data:", error);
+        }
+    }
+
+    async function simpanData() {
+        try {
+            await fetch(URL, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Master-Key": API_KEY
+                },
+                body: JSON.stringify(dataPelanggan)
+            });
+            console.log("Data berhasil disimpan.");
+        } catch (error) {
+            console.error("Gagal menyimpan data:", error);
+        }
+    }
+
+    function tambahData() {
+        const nama = document.getElementById('nama_pelanggan').value.trim();
+        const kodi = parseInt(document.getElementById('kodi_terjual').value);
+        const sudahBayar = parseInt(document.getElementById('sudah_bayar').value);
+        const hargaModal = parseInt(document.getElementById('harga_modal').value);
+
+        if (!nama || kodi <= 0 || isNaN(kodi)) {
+            alert('Silakan masukkan nama pelanggan dan jumlah kodi yang valid.');
+            return;
+        }
+
+        const id = Date.now(); // Menggunakan timestamp sebagai ID unik
+        dataPelanggan[id] = {
+            nama: nama,
+            kodi_terjual: kodi,
+            pembayaran_awal: sudahBayar,
+            harga_modal: hargaModal || 0 
+        };
+
+        simpanData();
+        tampilkanLaporan();
+
+        document.getElementById('nama_pelanggan').value = '';
+        document.getElementById('kodi_terjual').value = '0';
+        document.getElementById('sudah_bayar').value = '0';
+        document.getElementById('harga_modal').value = '0';
+    }
+
+    function tampilkanLaporan() {
+        const containerLaporan = document.getElementById('daftar_penjualan');
+        containerLaporan.innerHTML = ''; 
+        
+        let totalOmzetGlobal = 0;
+        let totalSisaUtangGlobal = 0;
+        let totalModalGlobal = 0;
+
+        const dataPelangganArray = Object.keys(dataPelanggan).map(key => ({
+            id: key,
+            data: dataPelanggan[key]
+        }));
+        
+        dataPelangganArray.sort((a, b) => {
+            const sisaUtangA = (a.data.kodi_terjual * hargaPerKodi) - a.data.pembayaran_awal;
+            const sisaUtangB = (b.data.kodi_terjual * hargaPerKodi) - b.data.pembayaran_awal;
+            
+            if (sisaUtangA > 0 && sisaUtangB <= 0) return -1;
+            if (sisaUtangA <= 0 && sisaUtangB > 0) return 1;
+            return 0;
+        });
+
+        dataPelangganArray.forEach(item => {
+            const { id, data } = item;
+            const totalTagihan = data.kodi_terjual * hargaPerKodi;
+            const sisaUtang = totalTagihan - data.pembayaran_awal;
+            const statusClass = sisaUtang > 0 ? 'belum-lunas' : 'lunas';
+            const statusText = sisaUtang > 0 ? 'Belum Lunas' : 'Lunas';
+            
+            totalOmzetGlobal += totalTagihan;
+            totalSisaUtangGlobal += sisaUtang;
+            totalModalGlobal += data.kodi_terjual * (data.harga_modal || 0);
+
+            const htmlItem = `
+                <div class="data-item ${statusClass}" data-id="${id}">
+                    <p><strong>Nama:</strong> ${data.nama}</p>
+                    <p><strong>Kodi Terjual:</strong> <span class="display-value kodi-value">${data.kodi_terjual}</span> kodi</p>
+                    <div class="edit-fields">
+                        <input type="number" class="edit-kodi" value="${data.kodi_terjual}"> kodi
+                    </div>
+                    <p><strong>Total Bayar:</strong> <span class="uang">Rp ${totalTagihan.toLocaleString('id-ID')}</span></p>
+                    <p><strong>Sudah Bayar:</strong> <span class="uang display-value bayar-value">Rp ${data.pembayaran_awal.toLocaleString('id-ID')}</span></p>
+                    <div class="edit-fields">
+                        <input type="number" class="edit-bayar" value="${data.pembayaran_awal}">
+                        <p><strong>Harga Modal:</strong> <input type="number" class="edit-modal" value="${data.harga_modal}"></p>
+                    </div>
+                    <p><strong>Sisa Utang:</strong> <span class="uang">Rp ${sisaUtang.toLocaleString('id-ID')}</span></p>
+                    <p><strong>Status:</strong> ${statusText}</p>
+                    <button class="edit-button" onclick="toggleEdit('${id}')">Edit</button>
+                    <button class="simpan-button" style="display:none;" onclick="simpanEdit('${id}')">Simpan</button>
+                    <button class="hapus-button" onclick="hapusData('${id}')">Hapus</button>
+                </div>
+            `;
+            containerLaporan.innerHTML += htmlItem;
+        });
+
+        const labaKotor = totalOmzetGlobal - totalModalGlobal;
+        const labaBersih = labaKotor - totalSisaUtangGlobal;
+
+        document.getElementById('omzet').innerText = `Rp ${totalOmzetGlobal.toLocaleString('id-ID')}`;
+        document.getElementById('total_modal').innerText = `Rp ${totalModalGlobal.toLocaleString('id-ID')}`;
+        document.getElementById('laba_kotor').innerText = `Rp ${labaKotor.toLocaleString('id-ID')}`;
+        document.getElementById('laba_bersih').innerText = `Rp ${labaBersih.toLocaleString('id-ID')}`;
+
+        document.getElementById('laporan-keuangan-container').style.display = 'block';
+    }
+
+    function toggleEdit(id) {
+        const item = document.querySelector(`.data-item[data-id="${id}"]`);
+        const displayElements = item.querySelectorAll('.display-value');
+        const editFields = item.querySelectorAll('.edit-fields');
+        const editButton = item.querySelector('.edit-button');
+        const simpanButton = item.querySelector('.simpan-button');
+        const hapusButton = item.querySelector('.hapus-button');
+
+        displayElements.forEach(el => el.style.display = 'none');
+        editFields.forEach(el => el.style.display = 'block');
+        editButton.style.display = 'none';
+        hapusButton.style.display = 'none';
+        simpanButton.style.display = 'block';
+    }
+
+    function simpanEdit(id) {
+        const item = document.querySelector(`.data-item[data-id="${id}"]`);
+        const kodiBaru = parseInt(item.querySelector('.edit-kodi').value);
+        const bayarBaru = parseInt(item.querySelector('.edit-bayar').value);
+        const modalBaru = parseInt(item.querySelector('.edit-modal').value);
+
+        if (kodiBaru <= 0 || isNaN(kodiBaru)) {
+            alert('Kodi terjual harus lebih dari 0.');
+            return;
+        }
+
+        dataPelanggan[id].kodi_terjual = kodiBaru;
+        dataPelanggan[id].pembayaran_awal = bayarBaru;
+        dataPelanggan[id].harga_modal = modalBaru;
+
+        simpanData();
+        tampilkanLaporan();
+    }
+
+    function hapusData(id) {
+        if (confirm(`Apakah Anda yakin ingin menghapus data ini?`)) {
+            delete dataPelanggan[id];
+            simpanData();
+            tampilkanLaporan();
+        }
+    }
+
+    window.onload = muatData;
+</script>
+
+</body>
+</html>
+        .input-group:last-child {
+            margin-right: 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="number"], input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 10px;
+        }
+        button.edit-button, button.simpan-button, button.hapus-button {
+            width: 31%;
+            padding: 8px;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        button.edit-button {
+            background-color: #ffc107;
+            color: #333;
+        }
+        button.simpan-button {
+            background-color: #28a745;
+        }
+        button.hapus-button {
+            background-color: #dc3545;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #hasil-penjualan {
+            margin-top: 20px;
+            border-top: 2px solid #eee;
+            padding-top: 20px;
+        }
+        .data-item {
+            background-color: #e9f5ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 5px solid #007bff;
             line-height: 1.2; /* Mengurangi jarak antar baris */
         }
         .lunas {
