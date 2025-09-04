@@ -144,7 +144,7 @@
         </div>
     </div>
     <button onclick="tambahData()">Tambah</button>
-    <button onclick="tampilkanLaporan()">Hitung Laporan</button>
+    <button onclick="muatDanTampilkanLaporan()">Tampilkan Laporan</button>
 
     <div id="hasil-penjualan">
         <h2>Laporan Penjualan</h2>
@@ -182,10 +182,11 @@
                 }
             });
             const data = await response.json();
-            dataPelanggan = data || {};
-            tampilkanLaporan();
+            dataPelanggan = data.record || {}; // Perbaikan: Akses data dari properti 'record'
+            return dataPelanggan;
         } catch (error) {
             console.error("Gagal memuat data:", error);
+            return {};
         }
     }
 
@@ -205,6 +206,12 @@
         }
     }
 
+    // Fungsi baru untuk memuat data dan menampilkannya
+    async function muatDanTampilkanLaporan() {
+        await muatData();
+        tampilkanLaporan();
+    }
+
     function tambahData() {
         const nama = document.getElementById('nama_pelanggan').value.trim();
         const kodi = parseInt(document.getElementById('kodi_terjual').value);
@@ -216,16 +223,16 @@
             return;
         }
 
-        const id = Date.now(); // Menggunakan timestamp sebagai ID unik
+        const id = Date.now();
         dataPelanggan[id] = {
             nama: nama,
             kodi_terjual: kodi,
             pembayaran_awal: sudahBayar,
-            harga_modal: hargaModal || 0 
+            harga_modal: hargaModal || 0
         };
 
         simpanData();
-        tampilkanLaporan();
+        muatDanTampilkanLaporan(); // Perbaikan: Muat ulang data setelah disimpan
 
         document.getElementById('nama_pelanggan').value = '';
         document.getElementById('kodi_terjual').value = '0';
@@ -235,7 +242,7 @@
 
     function tampilkanLaporan() {
         const containerLaporan = document.getElementById('daftar_penjualan');
-        containerLaporan.innerHTML = ''; 
+        containerLaporan.innerHTML = '';
         
         let totalOmzetGlobal = 0;
         let totalSisaUtangGlobal = 0;
@@ -331,18 +338,19 @@
         dataPelanggan[id].harga_modal = modalBaru;
 
         simpanData();
-        tampilkanLaporan();
+        muatDanTampilkanLaporan();
     }
 
     function hapusData(id) {
         if (confirm(`Apakah Anda yakin ingin menghapus data ini?`)) {
             delete dataPelanggan[id];
             simpanData();
-            tampilkanLaporan();
+            muatDanTampilkanLaporan();
         }
     }
-
-    window.onload = muatData;
+    
+    // Panggil fungsi ini saat halaman dimuat
+    window.onload = muatDanTampilkanLaporan;
 </script>
 
 </body>
