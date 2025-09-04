@@ -68,19 +68,10 @@
             font-size: 14px;
             margin-top: 5px;
         }
-        button.edit-button {
-            background-color: #ffc107;
-            color: #333;
-        }
-        button.simpan-button {
-            background-color: #28a745;
-        }
-        button.hapus-button {
-            background-color: #dc3545;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
+        button.edit-button { background-color: #ffc107; color: #333; }
+        button.simpan-button { background-color: #28a745; }
+        button.hapus-button { background-color: #dc3545; }
+        button:hover { background-color: #0056b3; }
         #hasil-penjualan {
             margin-top: 20px;
             border-top: 2px solid #eee;
@@ -92,23 +83,12 @@
             border-radius: 8px;
             margin-bottom: 10px;
             border-left: 5px solid #007bff;
-            line-height: 1.2; /* Mengurangi jarak antar baris */
+            line-height: 1.2;
         }
-        .lunas {
-            border-color: #28a745;
-            background-color: #eafff0;
-        }
-        .belum-lunas {
-            border-color: #dc3545;
-            background-color: #fff0f0;
-        }
-        .uang {
-            font-weight: bold;
-            color: #007bff;
-        }
-        .edit-fields {
-            display: none;
-        }
+        .lunas { border-color: #28a745; background-color: #eafff0; }
+        .belum-lunas { border-color: #dc3545; background-color: #fff0f0; }
+        .uang { font-weight: bold; color: #007bff; }
+        .edit-fields { display: none; }
         .laporan-keuangan {
             margin-top: 30px;
             padding: 20px;
@@ -116,9 +96,7 @@
             border-radius: 10px;
             border: 2px solid #8a2be2;
         }
-        .data-item p {
-            margin: 0; /* Menghapus margin default pada paragraf */
-        }
+        .data-item p { margin: 0; }
     </style>
 </head>
 <body>
@@ -148,8 +126,7 @@
 
     <div id="hasil-penjualan">
         <h2>Laporan Penjualan</h2>
-        <div id="daftar_penjualan">
-            </div>
+        <div id="daftar_penjualan"></div>
     </div>
 
     <div id="laporan-keuangan-container" style="display:none;">
@@ -167,15 +144,40 @@
     const hargaPerKodi = 45000;
     let dataPelanggan = {};
 
-    function simpanData() {
-        localStorage.setItem('dataPenjualan', JSON.stringify(dataPelanggan));
+    // Ganti dengan API_KEY dan BIN_ID kamu
+    const API_KEY = "$2a$10$i2DZWNMVKQF6aE6ywePaVukOPhSZ38yYdGCSBwNB.MlpyDyHx7vf6";
+    const BIN_ID = "68b93dd043b1c97be9364293";
+
+    async function simpanData() {
+        try {
+            const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Master-Key": API_KEY
+                },
+                body: JSON.stringify(dataPelanggan)
+            });
+            const result = await response.json();
+            console.log("Data tersimpan:", result);
+        } catch (err) {
+            console.error("Gagal menyimpan:", err);
+        }
     }
 
-    function muatData() {
-        const dataTersimpan = localStorage.getItem('dataPenjualan');
-        if (dataTersimpan) {
-            dataPelanggan = JSON.parse(dataTersimpan);
+    async function muatData() {
+        try {
+            const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+                method: "GET",
+                headers: {
+                    "X-Master-Key": API_KEY
+                }
+            });
+            const result = await response.json();
+            dataPelanggan = result.record || {};
             tampilkanLaporan();
+        } catch (err) {
+            console.error("Gagal memuat:", err);
         }
     }
 
@@ -213,21 +215,17 @@
         let totalSisaUtangGlobal = 0;
         let totalModalGlobal = 0;
 
-        // Ubah objek dataPelanggan menjadi array untuk diurutkan
         const dataPelangganArray = Object.keys(dataPelanggan).map(key => ({
             nama: key,
             data: dataPelanggan[key]
         }));
         
-        // Urutkan array: Belum Lunas di atas
         dataPelangganArray.sort((a, b) => {
             const sisaUtangA = (a.data.kodi_terjual * hargaPerKodi) - a.data.pembayaran_awal;
             const sisaUtangB = (b.data.kodi_terjual * hargaPerKodi) - b.data.pembayaran_awal;
-            
-            // Logika pengurutan: jika A belum lunas, letakkan di atas
             if (sisaUtangA > 0 && sisaUtangB <= 0) return -1;
             if (sisaUtangA <= 0 && sisaUtangB > 0) return 1;
-            return 0; // Tidak berubah jika keduanya lunas atau belum lunas
+            return 0;
         });
 
         dataPelangganArray.forEach(item => {
